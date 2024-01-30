@@ -15,9 +15,9 @@ def convert_matlab(src, dest):
                 image_data = cv2.normalize(image_data, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
             if 'Image' in f_path:
-                save_path = dest + 'oct/' + os.path.splitext(f_path)[0] + '.png'
+                save_path = dest + 'oct/' + os.path.splitext(f_path)[0].removesuffix('_Image') + '.png'
             else:
-                save_path = dest + 'oct-mask/' + os.path.splitext(f_path)[0] + '.png'
+                save_path = dest + 'oct-mask/' + os.path.splitext(f_path)[0].removesuffix('_Labels') + '.png'
 
             cv2.imwrite(save_path, image_data)
 
