@@ -74,8 +74,8 @@ def process_segmentation(src):
 os.makedirs('../data/segmentation-data/oct/')
 os.makedirs('../data/segmentation-data/oct-mask/')
 
-process_oct('../data/segmentation-data/matlab/')
-process_segmentation('../data/segmentation-data/oct-mask/')
+process_oct('../data/segmentation/matlab/')
+process_segmentation('../data/segmentation/oct-mask/')
 
-process_cfi('../data/segmentation-data/cfi/')
-process_segmentation('../data/segmentation-data/cfi-mask/')
+process_cfi('../data/segmentation/cfi/')
+process_segmentation('../data/segmentation/cfi-mask/')
