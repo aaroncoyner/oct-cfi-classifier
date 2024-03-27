@@ -14,10 +14,10 @@ ACTIVATION = 'sigmoid'
 
 # Training parameters
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'mps')
-NUM_WORKERS = 0
-TRAIN_BATCH = 4
+NUM_WORKERS = 16 if torch.cuda.is_available() else 0
+TRAIN_BATCH = 16
 VAL_BATCH = 8
-LR = 1e-2
+LR = 1e-3
 EPOCHS = 100
 PATIENCE = 10
-CROP_SIZE = 480
+CROP_SIZE = 448
