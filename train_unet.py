@@ -4,6 +4,7 @@
 import os
 
 import albumentations as A
+import cv2
 import numpy as np
 from PIL import Image
 import torch
@@ -13,6 +14,8 @@ from segmentation_models_pytorch.utils import metrics, losses, train
 
 import config as C
 
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 class CustomDataset(Dataset):
     CLASSES = ['background', 'vessel']
@@ -51,12 +54,56 @@ class CustomDataset(Dataset):
         return len(self.ids)
 
 
+def get_model(model_name, encoder, weights, channels, classes, activation):
+    if model_name == 'unet':
+        model = smp.Unet(
+            encoder_name=encoder,
+            encoder_weights=weights,
+            in_channels=channels,
+            classes=len(classes),
+            activation=activation
+        )
+        return model
+    
+    elif model_name == 'unet++':
+        model = smp.UnetPlusPlus(
+            encoder_name=encoder,
+            encoder_weights=weights,
+            in_channels=channels,
+            classes=len(classes),
+            activation=activation
+        )
+        return model
+
+    elif model_name == 'deeplabv3':
+        model = smp.DeepLabV3(
+            encoder_name=encoder,
+            encoder_weights=weights,
+            in_channels=channels,
+            classes=len(classes),
+            activation=activation
+        )
+        return model
+
+    elif model_name == 'deeplabv3+':
+        model = smp.DeepLabV3Plus(
+            encoder_name=encoder,
+            encoder_weights=weights,
+            in_channels=channels,
+            classes=len(classes),
+            activation=activation
+        )
+        return model
+
+    else:
+        print('ERROR: Model not implemented.')
+
+
 def get_training_augmentation():
     train_transform = [A.HorizontalFlip(p=0.5),
                        A.VerticalFlip(p=0.5),
-                       A.RandomCrop(height=C.CROP_SIZE, width=C.CROP_SIZE, always_apply=True),
-                       # A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
-                       # A.ShiftScaleRotate(scale_limit=0.1, rotate_limit=90, shift_limit=0., p=1, border_mode=0)
+                       A.ShiftScaleRotate(scale_limit=0.2, p=1, border_mode=cv2.BORDER_CONSTANT, value=0),
+                       # A.RandomCrop(height=C.CROP_SIZE, width=C.CROP_SIZE, always_apply=True),
                       ]    
     return A.Compose(train_transform)
 
@@ -110,25 +157,26 @@ def train_val():
         num_workers=C.NUM_WORKERS
     )
 
-    model = smp.Unet(
-        encoder_name=C.ENCODER,
-        encoder_weights=C.ENCODER_WEIGHTS,
-        in_channels=C.IN_CHANNELS,
-        classes=len(C.CLASSES),
+    model = get_model(
+        C.MODEL,
+        encoder=C.ENCODER,
+        weights=C.ENCODER_WEIGHTS,
+        channels=C.IN_CHANNELS,
+        classes=C.CLASSES,
         activation=C.ACTIVATION
     )
 
     model = model.to(C.DEVICE)
-
     optimizer = torch.optim.Adam(model.parameters(), lr=C.LR)
     loss = losses.DiceLoss()
+    # loss = losses.JaccardLoss()
     metric = [metrics.Fscore(threshold=0.5)]
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=1e-8)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=C.T_0, eta_min=C.ETA_MIN)
 
     max_score = 0
     best_epoch = 0
     for epoch in range(1, C.EPOCHS + 1):
-        print(f'\nEpoch {epoch} | learning rate: {scheduler.get_last_lr()[0]:.7f}')
+        print(f'\nEpoch {epoch} | learning rate: {scheduler.get_last_lr()[0]:.6f}')
         train_logs = train.TrainEpoch(
             model,
             loss=loss,
@@ -151,7 +199,7 @@ def train_val():
         if max_score < val_logs['fscore']:
             max_score = val_logs['fscore']
             best_epoch = epoch
-            torch.save(model, f'./output/unet_{C.ENCODER}.pth')
+            torch.save(model, f'./output/{C.MODEL}_{C.ENCODER}.pth')
             print('Model saved!')
 
     print(f'Best F score ({max_score}) at epoch {best_epoch}')
