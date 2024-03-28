@@ -8,7 +8,7 @@ from segmentation_models_pytorch.utils import metrics
 import segmentation_models_pytorch as smp
 from sklearn.metrics import f1_score
 
-from train import CustomDataset, get_preprocessing
+from train_unet import CustomDataset, get_preprocessing
 import config as C
 
 
@@ -17,7 +17,7 @@ x_test_dir = os.path.join(C.DATA_DIR, 'test_A')
 y_test_dir = os.path.join(C.DATA_DIR, 'test_B')
 
 
-model = torch.load(f'./output/unet_{C.ENCODER}.pth', map_location=C.DEVICE)
+model = torch.load(f'./output/{C.MODEL}_{C.ENCODER}.pth', map_location=C.DEVICE)
 model.eval()
 
 preprocessing_fn = smp.encoders.get_preprocessing_fn(C.ENCODER, C.ENCODER_WEIGHTS)
