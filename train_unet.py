@@ -20,12 +20,12 @@ ssl._create_default_https_context = ssl._create_unverified_context
 class CustomDataset(Dataset):
     CLASSES = ['background', 'vessel']
     
-    def __init__(self, rfi_dir, rvm_dir, classes=None, augmentation=None, preprocessing=None):
+    def __init__(self, image_dir, mask_dir, classes=None, augmentation=None, preprocessing=None):
 
-        self.ids = [f for f in os.listdir(rvm_dir) if not f.startswith('.')]
+        self.ids = [f for f in os.listdir(mask_dir) if not f.startswith('.')]
 
-        self.rfi_fps = [os.path.join(rfi_dir, image_id) for image_id in self.ids]
-        self.rvm_fps = [os.path.join(rvm_dir, image_id) for image_id in self.ids]
+        self.image_fps = [os.path.join(image_dir, image_id) for image_id in self.ids]
+        self.mask_fps = [os.path.join(mask_dir, image_id) for image_id in self.ids]
         
         self.class_values = [self.CLASSES.index(cls.lower()) for cls in classes] if classes else []
         
@@ -33,22 +33,22 @@ class CustomDataset(Dataset):
         self.preprocessing = preprocessing
     
     def __getitem__(self, i):
-        rfi = np.array(Image.open(self.rfi_fps[i]).convert('RGB'), dtype=np.float32)
-        rvm = np.array(Image.open(self.rvm_fps[i]).convert('L'), dtype=np.uint8)
-        rvm = np.where(rvm > 0, 1, 0)
-        rvm = np.stack([(rvm == v).astype('float') for v in self.class_values], axis=-1)
+        image = np.array(Image.open(self.image_fps[i]).convert('RGB'), dtype=np.float32)
+        mask = np.array(Image.open(self.mask_fps[i]).convert('L'), dtype=np.uint8)
+        mask = np.where(mask > 0, 1, 0)
+        mask = np.stack([(mask == v).astype('float') for v in self.class_values], axis=-1)
         
         if self.augmentation:
-            sample = self.augmentation(image=rfi, mask=rvm)
-            rfi, rvm = sample['image'], sample['mask']
+            sample = self.augmentation(image=image, mask=mask)
+            image, mask = sample['image'], sample['mask']
         
         if self.preprocessing:
-            sample = self.preprocessing(image=rfi, mask=rvm)
-            rfi, rvm = sample['image'], sample['mask']
-            rfi = rfi[0, :, :]
-            rfi = np.expand_dims(rfi, axis=0)
+            sample = self.preprocessing(image=image, mask=mask)
+            image, mask = sample['image'], sample['mask']
+            image = image[0, :, :]
+            image = np.expand_dims(image, axis=0)
 
-        return rfi, rvm
+        return image, mask
     
     def __len__(self):
         return len(self.ids)
@@ -169,7 +169,6 @@ def train_val():
     model = model.to(C.DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=C.LR)
     loss = losses.DiceLoss()
-    # loss = losses.JaccardLoss()
     metric = [metrics.Fscore(threshold=0.5)]
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=C.T_0, eta_min=C.ETA_MIN)
 
